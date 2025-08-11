@@ -1,4 +1,11 @@
 {
+  "name": "chatbot-whatsapp-postgres",
+  "version": "0.0.1",
+  "author": "Amilton Santos",
+  "private": true,
+  "scripts": {
+    "start": "node app.js"
+  },
   "dependencies": {
     "dotenv": "^17.2.1",
     "express": "^5.1.0",
