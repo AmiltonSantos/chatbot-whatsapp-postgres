@@ -28,118 +28,115 @@ let isInicializacao = false;
 
 const delay = ms => new Promise(res => setTimeout(res, ms)); // Função que usamos para criar o delay entre uma ação e outra
 
-// Pega as configurações de acesso do Postgres
-const postgres = new PgClient(config);
+async function conectPostgres(sendQuery) {
+  return new Promise(async (resolve, reject) => {
+    // Pega as configurações de acesso do Postgres
+    const postgres = new PgClient(config);
 
-// Carrega os números do SQL Server e adiciona @c.us
+    try {
+      await postgres.connect();
+      const result = await postgres.query(sendQuery);
+      resolve(result.rows);
+    } catch (err) {
+      reject(err);
+    } finally {
+      await postgres.end();
+    }
+  });
+}
+
+// Carrega os números da tabela do Postgres que vai ser altorizados a enviar mensagens
 async function carregarNumerosAutorizados() {
   try {
-    await postgres.connect();
-    const result = await postgres.query(`select * from numeros_clientes`);
+    const queryNumeros = await conectPostgres(`select * from numeros_clientes`)
 
-    numerosAutorizados = result.rows
+    numerosAutorizados = queryNumeros
       .filter(row => row.numero) // ignora valores nulos/undefined
       .map(row => row.numero.trim() + '@c.us');
-
-    console.log('teste postgress', numerosAutorizados);
   } catch (err) {
-    console.error('Erro ao carregar dados do Postgres:', err);
-  } finally {
-    await postgres.end();
+    console.error('Erro no processamento da query no Postgres:', err);
   }
 }
 
 // Carrega os produtos mas vendidos
 async function carregarProdutosMasVendidos() {
   try {
-    await postgres.connect();
-    const result = await postgres.query(`
-            select
-              i.produtonome,
-              i.fabricantenome,
-              i.quantidadecomprada,
-              i.percdesconto,
-              i.valorliquidounitario
-            from pedido_temp_aws p
-            inner join item_pedido_temp_aws i on i.pedidotempid = p.pedidotempid
-            where p.nometipovendedor <> 'PEDIDO WEB'
-            order by p.pedidotempid desc
-            limit 5
-        `);
+    const queryMasVendidos = await conectPostgres(`
+        SELECT
+          i.produtonome,
+          i.fabricantenome,
+          i.quantidadecomprada,
+          i.percdesconto,
+          i.valorliquidounitario
+        FROM pedido_temp_aws p
+        INNER JOIN item_pedido_temp_aws i on i.pedidotempid = p.pedidotempid
+        WHERE p.nometipovendedor <> 'PEDIDO WEB'
+        ORDER BY p.pedidotempid DESC
+        LIMIT 5
+    `);
 
-    produtosMasVendidos = result.rows;
+    produtosMasVendidos = queryMasVendidos;
   } catch (err) {
-    console.error('Erro ao carregar Produtos mas vendidos do Postgres:', err);
-  } finally {
-    await postgres.end();
+    console.error('Erro no processamento da query no Postgres:', err);
   }
 }
 
 // Carrega ofertas de hoje
 async function carregarOfertasHoje() {
   try {
-    await postgres.connect();
-    const result = await postgres.query(`
-            SELECT TOP 3
-                produtoNomeStr,
-                quantidadeComprada,
-                valor
-            FROM item_pedido_temp 
-            ORDER BY pedidoTempid DESC
-        `);
+    const queryOfertaHoje = await conectPostgres(`      
+        SELECT TOP 3
+            produtoNomeStr,
+            quantidadeComprada,
+            valor
+        FROM item_pedido_temp 
+        ORDER BY pedidoTempid DESC        
+    `);
 
-    ofertaHoje = result.recordset;
+    ofertaHoje = queryOfertaHoje;
   } catch (err) {
-    console.error('Erro ao carregar Produtos mas vendidos do Postgres:', err);
-  } finally {
-    await postgres.end();
+    console.error('Erro no processamento da query no Postgres:', err);
   }
 }
 
-// Carrega os números do SQL Server e adiciona @c.us
+// Carrega dados oferta especiais
 async function carregarOfertasEspeciais() {
   try {
-    await postgres.connect();
-    const result = await postgres.query(`
-            SELECT TOP 3
-                i.produtoNomeStr,
-                p.dataEnvioPedido,
-                i.valor
-            FROM pedido_temp p 
-            INNER JOIN item_pedido_temp i ON i.pedidoTempid = p.id
-            WHERE p.statusPedido = 1
-            ORDER BY pedidoTempid DESC
-        `);
+    const queryOfertaEspeciais = await conectPostgres(`
+        SELECT TOP 3
+            i.produtoNomeStr,
+            p.dataEnvioPedido,
+            i.valor
+        FROM pedido_temp p 
+        INNER JOIN item_pedido_temp i ON i.pedidoTempid = p.id
+        WHERE p.statusPedido = 1
+        ORDER BY pedidoTempid DESC
+    `);
 
-    ofertaEspecias = result.recordset;
+    ofertaEspecias = queryOfertaEspeciais;
   } catch (err) {
-    console.error('Erro ao carregar Produtos mas vendidos do Postgres:', err);
-  } finally {
-    await postgres.end();
+    console.error('Erro no processamento da query no Postgres:', err);
   }
 }
 
-// Carrega os números do Postgres e adiciona @c.us
+// Carrega dados ultimos pedidos
 async function carregarUltimosPedidos() {
   try {
-    await postgres.connect();
-    const result = await postgres.query(`
-            SELECT TOP 3
-                i.produtoNomeStr,
-                i.quantidadeComprada,
-                i.valor,
-                p.dataEnvioPedido
-            FROM pedido_temp p 
-            INNER JOIN item_pedido_temp i ON i.pedidoTempid = p.id
-            WHERE p.statusPedido = 1
-            ORDER BY pedidoTempid DESC
-        `);
+    const queryUltimosPedidos = await conectPostgres(`
+        SELECT TOP 3
+            i.produtoNomeStr,
+            i.quantidadeComprada,
+            i.valor,
+            p.dataEnvioPedido
+        FROM pedido_temp p 
+        INNER JOIN item_pedido_temp i ON i.pedidoTempid = p.id
+        WHERE p.statusPedido = 1
+        ORDER BY pedidoTempid DESC
+    `);
 
-    ultimosPedidos = result.recordset;
+    ultimosPedidos = queryUltimosPedidos;
   } catch (err) {
-    console.error('Erro ao carregar Produtos mas vendidos do Postgres:', err);
-  } finally {
-    await postgres.end();
+    console.error('Erro no processamento da query no Postgres:', err);
   }
 }
 
@@ -192,25 +189,38 @@ async function criarCliente() {
   client.initialize();
 }
 
+// Verifica se é um contato privado e autorizado
+function isPrivadoAutorizado(msg) {
+  const numero = msg.from;
+  return numero.endsWith('@c.us') && numerosAutorizados.includes(numero);
+}
+
+// Função para criar ou retornar a sessão do usuário
+function getSessao(numero) {
+  if (!sessoesUsuarios.has(numero)) {
+    sessoesUsuarios.set(numero, { etapa: 'inicio', numero });
+  }
+  return sessoesUsuarios.get(numero);
+}
+
 // Funil
 async function iniciandoMessage() {
   isInicializacao = true;
   client.on('message', async msg => {
     const numero = msg.from;
 
-    if (!numerosAutorizados.includes(numero)) return; // Ignora quem não estiver na lista
-    if (!numero.endsWith('@c.us')) return; // ignora grupos
+    // Ignora mensagens de grupos
+    if (numero.endsWith('@g.us')) return;
 
-    // Inicia sessão se ainda não existir
-    if (!sessoesUsuarios.has(numero)) {
-      sessoesUsuarios.set(numero, { etapa: 'inicio' });
-    }
+    // Ignora se não for privado autorizado
+    if (!isPrivadoAutorizado(msg)) return;
 
-    const sessao = sessoesUsuarios.get(numero);
+    // Obtém a sessão do usuário
+    const sessao = getSessao(numero);
 
     // Exemplo de fluxo
     if (sessao.etapa === 'inicio') {
-      if (msg.body.match(/(menu|Menu|dia|tarde|noite|oi|Oi|Olá|olá|ola|Ola|Eae|eae|tudo|bem|Bem|Tudo)/i) && msg.from.endsWith('@c.us')) {
+      if (msg.body.match(/(menu|Menu|dia|tarde|noite|oi|Oi|Olá|olá|ola|Ola|Eae|eae|tudo|bem|Bem|Tudo|como|Como|COMO|vai|Vai|VAI)/i)) {
         const chat = await msg.getChat();
 
         await delay(3000); //delay de 3 segundos
@@ -218,7 +228,7 @@ async function iniciandoMessage() {
         await delay(3000); //Delay de 3000 milisegundos mais conhecido como 3 segundos
         const contact = await msg.getContact(); //Pegando o contato
         const name = contact.pushname; //Pegando o nome do contato
-        await client.sendMessage(msg.from, 'Olá! *' + name.split(" ")[0] + '* Tudo bem?\n\nAqui é da *a1000ton Tecnologia.* \nComo posso ajudá-lo hoje? \nPor favor, digite uma das opções abaixo:\n\n*1 - Produtos mais vendidos*\n*2 - Ofertas de hoje*\n*3 - Ofertas especiais*\n*4 - Meus últimos pedidos*\n*5 - Outras perguntas*'); //Primeira mensagem de texto
+        await client.sendMessage(numero, 'Olá! *' + name.split(" ")[0] + '* Tudo bem?\n\nAqui é da *a1000ton Tecnologia.* \nComo posso ajudá-lo hoje? \nPor favor, digite uma das opções abaixo:\n\n*1 - Produtos mais vendidos*\n*2 - Ofertas de hoje*\n*3 - Ofertas especiais*\n*4 - Meus últimos pedidos*\n*5 - Outras perguntas*'); //Primeira mensagem de texto
         await delay(3000); //delay de 3 segundos
         await chat.sendStateTyping(); // Simulando Digitação
         await delay(2000); //Delay de 2 segundos
@@ -227,93 +237,95 @@ async function iniciandoMessage() {
       }
     }
 
-    // 1 - Produtos Mas vendidos
-    if (sessao.etapa === 'menu' && msg.body !== null && msg.body === '1' && msg.from.endsWith('@c.us')) {
-      let resProdMasVend = '*1 - Produtos mais vendidos*\n\n';
-      await carregarProdutosMasVendidos();
-      const chat = await msg.getChat();
+    if (sessao.etapa === 'menu') {
+      // 1 - Produtos Mas vendidos
+      if (msg.body !== null && msg.body === '1') {
+        let resProdMasVend = '*1 - Produtos mais vendidos*\n\n';
+        await carregarProdutosMasVendidos();
+        const chat = await msg.getChat();
 
-      produtosMasVendidos.forEach(vend => {
-        resProdMasVend +=
-          `*Produto:* ${vend.produtonome}\n` +
-          `*Fabricante:* ${vend.fabricantenome}\n` +
-          `*Qtd Comprada:* ${vend.quantidadecomprada} un\n` +
-          `*Desconto:* ${vend.percdesconto}%\n` +
-          `*Valor:* R$ ${vend.valorliquidounitario.toFixed(2).replace('.', ',')}\n\n`;
-      });
+        produtosMasVendidos.forEach(vend => {
+          resProdMasVend +=
+            `*Produto:* ${vend.produtonome}\n` +
+            `*Fabricante:* ${vend.fabricantenome}\n` +
+            `*Qtd Comprada:* ${vend.quantidadecomprada} un\n` +
+            `*Desconto:* ${vend.percdesconto}%\n` +
+            `*Valor:* R$ ${Number(vend.valorliquidounitario).toFixed(2).replace('.', ',')}\n\n`;
+        });
 
-      await delay(3000); //Delay de 3000 milisegundos mais conhecido como 3 segundos
-      await chat.sendStateTyping(); // Simulando Digitação
-      await delay(2000);
-      await client.sendMessage(msg.from, `${resProdMasVend}`);
-    }
+        await delay(3000); //Delay de 3000 milisegundos mais conhecido como 3 segundos
+        await chat.sendStateTyping(); // Simulando Digitação
+        await delay(2000);
+        await client.sendMessage(numero, `${resProdMasVend}`);
+      }
 
-    // 2 - Ofertas de Hoje
-    if (sessao.etapa === 'menu' && msg.body !== null && msg.body === '2' && msg.from.endsWith('@c.us')) {
-      let resOfertaHoje = '*2 - Ofertas de hoje*\n\n';
-      await carregarOfertasHoje();
-      const chat = await msg.getChat();
+      // 2 - Ofertas de Hoje
+      if (msg.body !== null && msg.body === '2') {
+        let resOfertaHoje = '*2 - Ofertas de hoje*\n\n';
+        await carregarOfertasHoje();
+        const chat = await msg.getChat();
 
-      ofertaHoje.forEach(hoje => {
-        resOfertaHoje +=
-          `*Produto:* ${hoje.produtoNomeStr}\n` +
-          `*Quantidade:* ${hoje.quantidadeComprada} un\n` +
-          `*Preço:* R$ ${hoje.valor}\n\n`;
-      });
+        ofertaHoje.forEach(hoje => {
+          resOfertaHoje +=
+            `*Produto:* ${hoje.produtoNomeStr}\n` +
+            `*Quantidade:* ${hoje.quantidadeComprada} un\n` +
+            `*Preço:* R$ ${hoje.valor}\n\n`;
+        });
 
-      await delay(3000); //Delay de 3000 milisegundos mais conhecido como 3 segundos
-      await chat.sendStateTyping(); // Simulando Digitação
-      await delay(2000);
-      await client.sendMessage(msg.from, `${resOfertaHoje}`);
-    }
+        await delay(3000); //Delay de 3000 milisegundos mais conhecido como 3 segundos
+        await chat.sendStateTyping(); // Simulando Digitação
+        await delay(2000);
+        await client.sendMessage(numero, `${resOfertaHoje}`);
+      }
 
-    // 3 - Oferta Especiais
-    if (sessao.etapa === 'menu' && msg.body !== null && msg.body === '3' && msg.from.endsWith('@c.us')) {
-      let resOfertaEspeciais = '*3 - Ofertas especiais*\n\n';
-      await carregarOfertasEspeciais();
-      const chat = await msg.getChat();
+      // 3 - Oferta Especiais
+      if (msg.body !== null && msg.body === '3') {
+        let resOfertaEspeciais = '*3 - Ofertas especiais*\n\n';
+        await carregarOfertasEspeciais();
+        const chat = await msg.getChat();
 
-      ofertaEspecias.forEach(esp => {
-        resOfertaEspeciais +=
-          `*Produto:* ${esp.produtoNomeStr}\n` +
-          `*Valor:* R$ ${esp.valor}\n` +
-          `*Data Oferta:* ${esp.dataEnvioPedido}\n\n`;
-      });
+        ofertaEspecias.forEach(esp => {
+          resOfertaEspeciais +=
+            `*Produto:* ${esp.produtoNomeStr}\n` +
+            `*Valor:* R$ ${esp.valor}\n` +
+            `*Data Oferta:* ${esp.dataEnvioPedido}\n\n`;
+        });
 
-      await delay(3000); //Delay de 3000 milisegundos mais conhecido como 3 segundos
-      await chat.sendStateTyping(); // Simulando Digitação
-      await delay(2000);
-      await client.sendMessage(msg.from, `${resOfertaEspeciais}`);
-    }
+        await delay(3000); //Delay de 3000 milisegundos mais conhecido como 3 segundos
+        await chat.sendStateTyping(); // Simulando Digitação
+        await delay(2000);
+        await client.sendMessage(numero, `${resOfertaEspeciais}`);
+      }
 
-    // 4 - Ultimos Pedidos
-    if (sessao.etapa === 'menu' && msg.body !== null && msg.body === '4' && msg.from.endsWith('@c.us')) {
-      let resUltimosPedidos = '*4 - Meus últimos pedidos*\n\n';
-      await carregarUltimosPedidos();
-      const chat = await msg.getChat();
+      // 4 - Ultimos Pedidos
+      if (msg.body !== null && msg.body === '4') {
+        let resUltimosPedidos = '*4 - Meus últimos pedidos*\n\n';
+        await carregarUltimosPedidos();
+        const chat = await msg.getChat();
 
-      ultimosPedidos.forEach(ult => {
-        resUltimosPedidos +=
-          `*Produto:* ${ult.produtoNomeStr}\n` +
-          `*Quantidade:* ${ult.quantidadeComprada} un\n` +
-          `*Valor:* R$ ${ult.valor}\n` +
-          `*Data:* ${ult.dataEnvioPedido}\n\n`;
-      });
+        ultimosPedidos.forEach(ult => {
+          resUltimosPedidos +=
+            `*Produto:* ${ult.produtoNomeStr}\n` +
+            `*Quantidade:* ${ult.quantidadeComprada} un\n` +
+            `*Valor:* R$ ${ult.valor}\n` +
+            `*Data:* ${ult.dataEnvioPedido}\n\n`;
+        });
 
-      await delay(3000); //Delay de 3000 milisegundos mais conhecido como 3 segundos
-      await chat.sendStateTyping(); // Simulando Digitação
-      await delay(2000);
-      await client.sendMessage(msg.from, `${resUltimosPedidos}`);
-    }
+        await delay(3000); //Delay de 3000 milisegundos mais conhecido como 3 segundos
+        await chat.sendStateTyping(); // Simulando Digitação
+        await delay(2000);
+        await client.sendMessage(numero, `${resUltimosPedidos}`);
+      }
 
-    // 5 - Outras perguntas
-    if (sessao.etapa === 'menu' && msg.body !== null && msg.body === '5' && msg.from.endsWith('@c.us')) {
-      const chat = await msg.getChat();
+      // 5 - Outras perguntas
+      if (msg.body !== null && msg.body === '5') {
+        const chat = await msg.getChat();
 
-      await delay(3000); //Delay de 3000 milisegundos mais conhecido como 3 segundos
-      await chat.sendStateTyping(); // Simulando Digitação
-      await delay(3000);
-      await client.sendMessage(msg.from, `A *Artnew Tecnologia* agradece seu contato!`);
+        await delay(3000); //Delay de 3000 milisegundos mais conhecido como 3 segundos
+        await chat.sendStateTyping(); // Simulando Digitação
+        await delay(3000);
+        await client.sendMessage(numero, `A *Artnew Tecnologia* agradece seu contato!`);
+      }
     }
   });
 }
