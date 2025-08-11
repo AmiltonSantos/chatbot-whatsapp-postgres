@@ -28,9 +28,9 @@ let isInicializacao = false;
 
 const delay = ms => new Promise(res => setTimeout(res, ms)); // Função que usamos para criar o delay entre uma ação e outra
 
+// Pega as configurações de acesso do Postgres
 async function conectPostgres(sendQuery) {
   return new Promise(async (resolve, reject) => {
-    // Pega as configurações de acesso do Postgres
     const postgres = new PgClient(config);
 
     try {
@@ -54,7 +54,7 @@ async function carregarNumerosAutorizados() {
       .filter(row => row.numero) // ignora valores nulos/undefined
       .map(row => row.numero.trim() + '@c.us');
   } catch (err) {
-    console.error('Erro no processamento da query no Postgres:', err);
+    console.error('1 - Erro no processamento da query no Postgres:', err);
   }
 }
 
@@ -77,7 +77,7 @@ async function carregarProdutosMasVendidos() {
 
     produtosMasVendidos = queryMasVendidos;
   } catch (err) {
-    console.error('Erro no processamento da query no Postgres:', err);
+    console.error('2 - Erro no processamento da query no Postgres:', err);
   }
 }
 
@@ -95,7 +95,7 @@ async function carregarOfertasHoje() {
 
     ofertaHoje = queryOfertaHoje;
   } catch (err) {
-    console.error('Erro no processamento da query no Postgres:', err);
+    console.error('3 - Erro no processamento da query no Postgres:', err);
   }
 }
 
@@ -115,7 +115,7 @@ async function carregarOfertasEspeciais() {
 
     ofertaEspecias = queryOfertaEspeciais;
   } catch (err) {
-    console.error('Erro no processamento da query no Postgres:', err);
+    console.error('4 - Erro no processamento da query no Postgres:', err);
   }
 }
 
@@ -136,10 +136,11 @@ async function carregarUltimosPedidos() {
 
     ultimosPedidos = queryUltimosPedidos;
   } catch (err) {
-    console.error('Erro no processamento da query no Postgres:', err);
+    console.error('5 - Erro no processamento da query no Postgres:', err);
   }
 }
 
+// Inicia carramento do QRCode
 async function criarCliente() {
   client = new Client({
     authStrategy: new LocalAuth(),
@@ -229,8 +230,6 @@ async function iniciandoMessage() {
         const contact = await msg.getContact(); //Pegando o contato
         const name = contact.pushname; //Pegando o nome do contato
         await client.sendMessage(numero, 'Olá! *' + name.split(" ")[0] + '* Tudo bem?\n\nAqui é da *a1000ton Tecnologia.* \nComo posso ajudá-lo hoje? \nPor favor, digite uma das opções abaixo:\n\n*1 - Produtos mais vendidos*\n*2 - Ofertas de hoje*\n*3 - Ofertas especiais*\n*4 - Meus últimos pedidos*\n*5 - Outras perguntas*'); //Primeira mensagem de texto
-        await delay(3000); //delay de 3 segundos
-        await chat.sendStateTyping(); // Simulando Digitação
         await delay(2000); //Delay de 2 segundos
 
         sessao.etapa = 'menu';
